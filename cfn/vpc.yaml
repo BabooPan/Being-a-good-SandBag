@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  Network Template: Sample template that creates a VPC with DNS and public IPs enabled.
+  Network Template: Sample template that creates a VPC with standard design.
 
 # This template creates:
 #   VPC
@@ -27,7 +27,6 @@ Parameters:
 ######################
 # Resources section
 ######################
-
 Resources:
 
   ## VPC
@@ -339,7 +338,7 @@ Resources:
           ToPort: 443
           CidrIp: 0.0.0.0/0    
 
-  ## Security Group for ALB
+  ## Security Group for DB
 
   MySQLSecurityGroup:  
     Type: AWS::EC2::SecurityGroup
