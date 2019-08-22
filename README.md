@@ -174,6 +174,16 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
 - 如果允許混搭，那就可以混instance types & pricing options
 - Health check通常會搭配用ELB，選成EC2的話會以檢查physical host function為主
 
+### Re-Run Userdata after launched EC2
+- Linux
+    - 看[Cloud-init](https://cloudinit.readthedocs.io/en/latest/topics/examples.html)文件去修改Service配置黨
+    - [Knoledage center有把它改成每次restart後都會重新執行userdata的範例](https://aws.amazon.com/premiumsupport/knowledge-center/execute-user-data-ec2/)
+- [Windows](https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-windows-user-data.html)
+    - 進去OS找Cloud-Init的服務
+        > 或是Cloud Config，有點忘記詳細名稱
+    - 當中有一個分頁有個選項可以打勾，要重新跑一次UserData
+    - 每次都要再去勾才會生效
+
 ### Instance Type
 - 看有沒有用對，但八成會限定`t2.micro`
 - 不然可以搭配AutoScaling做混搭的request
