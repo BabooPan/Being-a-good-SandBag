@@ -9,6 +9,8 @@ Description: >-
 #   Auto Scaling Group
 #   LaunchConfiguration
 #   LaunchTemplate
+#   IAM Role
+#   IAM Policy
 #   Scaling Policy
 #   CloudWatch Alarm
 #   LifecycleHook
@@ -69,6 +71,7 @@ Parameters:
 ######################
 # Resources section
 ######################
+
 Resources:
 
   IAMPolicy:

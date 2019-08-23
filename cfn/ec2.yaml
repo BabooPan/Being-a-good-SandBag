@@ -49,6 +49,7 @@ Parameters:
 ######################
 # Resources section
 ######################
+
 Resources:
 
   ## Security Group for EC2

@@ -27,6 +27,7 @@ Parameters:
 ######################
 # Resources section
 ######################
+
 Resources:
 
   ## VPC
@@ -387,6 +388,12 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-VPCID'
   
+  S3Endpoint:
+    Description: S3 Endpoint Gateway ID
+    Value: !Ref S3Endpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-S3EndpointGWID'
+
   PublicSubnet1:
     Description: The subnet ID to use for public subnet
     Value: !Ref PublicSubnet1
