@@ -1,8 +1,16 @@
 # 打沙包懶人包
 1. 完善架構，看情境盡可能做到Well-Architect
 2. 畫架構圖來輔助說明設計概念
-3. 包成CloudFormation
+3. 包成CloudFormation Template
 * 千萬不要為了追求Cost、Latency，而放棄其他層面該做的
+* Dashboard分數僅供參考，並不代表真正成績，我們大會會review架構評分：
+    * **Security**
+    * **Automation**
+        * 不管你是要自己寫成一包部署下去
+        * 或是Github找template直接deploy之後再改設定
+        * ***架構有的設定都要呈現在CloudFormation Resources那邊，才會做為評判標準***
+    * Performation
+    * Cost
 
 ## Default套路 - 標準三層式結構
 - 有預設的機器，當中會需要塞UserData拿最新的包，UserData會啟用那個程序開始算分
@@ -390,6 +398,42 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 - 把HTTPS/TLS做加解密的動作在ELB上面解決，讓EC2 CPU的loading shift出來做該做的事情
 - 一般搭配ACM處理
 
+## CloudFormation
+- 分層級去看
+    - VPC, Subnet, Route, Gateway, SG, NACL, Endpoint
+    - EC2, Launch configuration/template, AutoScaling Group, Scaling Policy, CloudWatch Alarm
+    > 看需不需要透過cfn-init/userdata，安裝一些套件在EC2
+    - IAM Role
+    - ELB, Target Group, Listener, Routing Policy
+    - RDS, Multi-AZ
+    - DynamoDB
+    - S3, Bucket Policy, Block public access
+    - 有些相關配置要上`Depends On`、Export/Output參數出來的要記住
+
+- 能包的漂亮盡量包，要上註解描述那一區塊在幹嘛
+    > 有空的話
+- 可以拆掉分別用stack建立 → 相對簡單
+- Serverless的部分用SAM去部署比較簡單
+- 常用飯粒們  
+    - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
+    - https://github.com/awslabs/aws-cloudformation-templates
+    - https://github.com/widdix/aws-cf-templates
+- Container
+    - [pahud/ecs-cfn-refarch](https://github.com/pahud/ecs-cfn-refarch)
+    - [aws-samples/amazon-eks-refarch-cloudformation](https://github.com/aws-samples/amazon-eks-refarch-cloudformation)
+- 沒什麼用的
+    - https://gitlab.com/ecloudture-dev/blog/aws-basic-of-cloudformation
+    - https://gitlab.com/ecloudture/olympic/how-to-build-an-elastic-structure/blob/master/lab-network_yaml.yaml
+    - https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/05-deploy-your-cloudformation-template
+
+### CloudFormer
+1. CloudFormation > Sample > 最下面
+2. 餵Username & password
+3. 看IAM有沒有權限建立起來，這Template會去建Role，有可能權限被鎖不能用
+4. Deploy好之後，透過HTTPS訪問EC2 IP，略過憑證檢查
+5. 開始打勾勾，最後一步會吐出Template in JSON
+    > 再去CloudFormation Designer裡面轉成yaml比較好看（私心推薦
+
 ## Route53
 - 主要應該會是透過Private Hosted Zone
 - 要記得associate VPC，那個VPC才會生效
@@ -456,36 +500,6 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 ## Elastic Beanstalk
 - 微乎其微的出現率
-
-## CloudFormation
-- https://gitlab.com/ecloudture-dev/blog/aws-basic-of-cloudformation
-- https://gitlab.com/ecloudture/olympic/how-to-build-an-elastic-structure/blob/master/lab-network_yaml.yaml
-- https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/05-deploy-your-cloudformation-template
-- 分層級去看
-    - VPC, Subnet, Route, Gateway, SG, NACL, Endpoint
-    - EC2, Launch configuration/template, AutoScaling Group, Scaling Policy, CloudWatch Alarm
-    > 看需不需要透過cfn-init/userdata，安裝一些套件在EC2
-    - IAM Role
-    - ELB, Target Group, Listener, Routing Policy
-    - RDS, Multi-AZ
-    - DynamoDB
-    - S3, Bucket Policy, Block public access
-    - 有些相關配置要上`Depends On`、Export/Output參數出來的要記住
-
-- 能包的漂亮盡量包
-- 要上註解描述那一區塊在幹嘛
-- 飯粒們  
-    - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
-    - https://github.com/awslabs/aws-cloudformation-templates
-    - https://github.com/widdix/aws-cf-templates
-
-### CloudFormer
-1. CloudFormation > Sample > 最下面
-2. 餵Username & password
-3. 看IAM有沒有權限建立起來，這Template會去建Role，有可能權限被鎖不能用
-4. Deploy好之後，透過HTTPS訪問EC2 IP，略過憑證檢查
-5. 開始打勾勾，最後一步會吐出Template in JSON
-    > 再去CloudFormation Designer裡面轉成yaml比較好看（私心推薦
 
 ## System manager
 - ec2要attached service role才能call

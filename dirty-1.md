@@ -31,6 +31,8 @@ mv <Package> <Target_Path>
 wget <Application_Endpoint>
 mv <Package> <Target_Path>
 
+# Path最好是直接指絕對路徑：/home/ec2-user
+
 # Configure and deploy MySQL
 yum install mysql
 service mysql start
@@ -45,5 +47,15 @@ chmod +x server
 # Reboot if the server application crashes
 shutdown -h now
 ```
-###
 
+### CloudFormation部署
+- VPC先建，再弄ASG，接著再Deploy其他的
+- 記得改裡面的參數為貼近實際狀況
+- 其他的就從Sample裡面Deploy出來，再改設定符合情境
+- 飯粒們  
+    - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
+    - https://github.com/awslabs/aws-cloudformation-templates
+    - https://github.com/widdix/aws-cf-templates
+- Container
+    - [pahud/ecs-cfn-refarch](https://github.com/pahud/ecs-cfn-refarch)
+    - [aws-samples/amazon-eks-refarch-cloudformation](https://github.com/aws-samples/amazon-eks-refarch-cloudformation)
