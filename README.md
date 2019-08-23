@@ -85,6 +85,9 @@
     - Database level
     - Storage
 - EBS撞到Disk I/O的話 → 調IOPS
+- EFS效能會看使用狀況決定
+    - Throughput一般建議使用 ***Bursting mode***，因為Provisioned mode會看使用量（以TB為單位）去調整，用大量空間去換較好的Throughput
+    - Performance跟EBS一樣，General Purpose可以解決大部分場景；如果場景I/O相對敏感，建議改為 ***Max I/O***
 
 ### 加強安全性
 1. Security Group Chain，讓最外面的那個全開就好，符合最小暴露原則
