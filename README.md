@@ -1,9 +1,10 @@
 # 打沙包懶人包
-1. 完善架構，看情境盡可能做到Well-Architect
-2. 畫架構圖來輔助說明設計概念
-3. 包成CloudFormation Template
+1. 完成需求
+2. 完善架構，看情境盡可能做到Well-Architect
+3. 畫架構圖來輔助說明設計概念
+4. 包成CloudFormation Template
 * 千萬不要為了追求Cost、Latency，而放棄其他層面該做的
-* Dashboard分數僅供參考，並不代表真正成績，我們大會會review架構評分：
+* Dashboard分數為評比項目之一，並不代表真正成績，我們會再review架構做整體評分：
     * **Security**
     * **Automation**
         * 不管你是要自己寫成一包部署下去
