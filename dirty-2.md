@@ -19,19 +19,9 @@
         * 或是Github找template直接deploy之後再改設定
         * ***架構有的設定都要呈現在CloudFormation Resources那邊，才會做為評判標準***
 
-### 測試EC2當中的Application如何運作
-- 依據需求在單機上安裝相關套件
-- 寫成UserData
-
-#### UserData
-- 部署Application
-- Application設定檔案，建議放在S3
-    - 方便修改檔案後，重啟機器就能吃到最新的設定
-    - 要注意S3那一段，Bucket Policy & Endpoint
-    - 要記得修改Route Table
-
 ### CloudFormation部署
-- VPC-v2先建，再弄ASG-v2，接著再Deploy其他的
+- VPC-v2先建，再弄ASG-v2 (兩個都先選在Public Subnet比較保險)
+- 接著再Deploy其他的
     - CloudFront
     - S3
     - RDS-PostgreSQL
@@ -43,6 +33,16 @@
     - https://github.com/awslabs/aws-cloudformation-templates
     - https://github.com/widdix/aws-cf-templates
 
+### 測試EC2當中的Application如何運作
+- 依據需求在單機上安裝相關套件
+- 寫成UserData
+
+#### UserData
+- 部署Application
+- Application設定檔案，建議放在S3
+    - 方便修改檔案後，重啟機器就能吃到最新的設定
+    - 要注意S3那一段，Bucket Policy & Endpoint
+    - 要記得修改Route Table
 
 ### ALB
 - Listener在HTTP (TCP/80)

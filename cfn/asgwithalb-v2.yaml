@@ -58,9 +58,19 @@ Parameters:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
 
-  LatestAmiId:
-    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    Default: '/aws/service/ami-amazon-linux-latest/amzn-ami-hvm-x86_64-gp2'
+  # LatestAmiId:
+  #   Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+  #   Default: '/aws/service/ami-amazon-linux-latest/amzn-ami-hvm-x86_64-gp2'
+
+  WebAmiId:
+    Description: 'AMI ID for Web server.'
+    Type: String
+    Default: 'ami-035b3c7efe6d061d5'
+
+  PathWebAmiId:
+    Description: 'AMI ID for Path Web server.'
+    Type: String
+    Default: 'ami-035b3c7efe6d061d5'
 
   AutoScalingGroupMinSize:
     Type: Number
@@ -162,10 +172,9 @@ Resources:
   LaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      AssociatePublicIpAddress: true
       # IamInstanceProfile: !GetAtt InstanceProfile.Arn
       KeyName: !Ref KeyName
-      ImageId: !Ref LatestAmiId
+      ImageId: !Ref WebAmiId
       SecurityGroups: [!Ref 'WebSecurityGroup']
       InstanceType: !Ref InstanceType
       # SpotPrice: 0.0045
@@ -196,7 +205,7 @@ Resources:
       - !Select [ 0, !GetAZs '' ]
       - !Select [ 1, !GetAZs '' ]
       VPCZoneIdentifier: !Ref ASGSubnets
-      LaunchConfigurationName: !Ref LaunchConfig
+      LaunchConfigurationName: !Ref PathWebLaunchConfig
       DesiredCapacity: !Ref AutoScalingGroupDesiredSize
       MinSize: !Ref AutoScalingGroupMinSize
       MaxSize: !Ref AutoScalingGroupMaxSize
@@ -212,10 +221,9 @@ Resources:
   PathWebLaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      AssociatePublicIpAddress: true
       # IamInstanceProfile: !GetAtt InstanceProfile.Arn
       KeyName: !Ref KeyName
-      ImageId: !Ref LatestAmiId
+      ImageId: !Ref PathWebAmiId
       SecurityGroups: [!Ref 'PathWebSecurityGroup']
       InstanceType: !Ref InstanceType
       # SpotPrice: 0.0045
@@ -361,6 +369,35 @@ Resources:
         Ref: ApplicationLoadBalancer
       Port: '80'
       Protocol: HTTP
+
+  ListenerRule1:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref PathWebALBTargetGroup
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - path
+      ListenerArn: !Ref ALBListener
+      Priority: 1
+
+  # ListenerRule2:
+  #   Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+  #   Properties:
+  #     Actions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref PathWebALBTargetGroup
+  #     Conditions:
+  #       - Field: http-header
+  #         HttpHeaderConfig:
+  #           HttpHeaderName: User-Agent
+  #           Values:
+  #             - Chrome
+  #     ListenerArn: !Ref Listener
+  #     Priority: 2
 
   WebALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup

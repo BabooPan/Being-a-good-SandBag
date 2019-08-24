@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ElastiCache Redis'
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: 'ElastiCache Parameters'
+      Parameters:
+      - EngineVersion
+      - CacheNodeType
+      - TransitEncryption
+      - AuthToken
+      - VpcId
+      - ECSubnets
+      - SourceAllow2AccessMemcached
+
+Parameters:
+
+  VpcId:
+    Description: The VPC of the worker instances
+    Type: AWS::EC2::VPC::Id
+
+  ECSubnets:
+    Description: Select 2 subnets where ElastiCache can be created.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  SourceAllow2AccessMemcached:
+    Description: Source SG Allow 2 Access ElastiCache Redis.
+    Type: String
+    Default: 'sg-xxxxxx'
+
+  # NetworkStackName:
+  #   Description: >-
+  #     Name of an active CloudFormation stack that contains the networking
+  #     resources, such as the VPC and subnet that will be used in this stack.
+  #   Type: String
+  #   MinLength: 1
+  #   MaxLength: 255
+  #   AllowedPattern: '^[a-zA-Z][-a-zA-Z0-9]*$'
+  #   Default: test-vpc
+
+  EngineVersion:
+    Description: 'memcached version'
+    Type: String
+    Default: '1.5.10'
+    AllowedValues: # aws elasticache describe-cache-engine-versions --engine memcached --query "CacheEngineVersions[].EngineVersion"
+    - '1.5.10'
+    - '1.4.5'
+    - '1.4.34'
+
+  CacheNodeType:
+    Description: 'The compute and memory capacity of the nodes in the node group (shard).'
+    Type: 'String'
+    Default: 'cache.t2.micro'
+  
+  NumCacheNodes:
+    Description: 'The initial number of cache nodes that the cluster has.'
+    Type: 'Number'
+    Default: 2
+
+Mappings:
+  EngineVersionMap:
+    '1.4.34':
+      CacheParameterGroupFamily: 'memcached1.4'
+    '1.4.5':
+      CacheParameterGroupFamily: 'memcached1.4'
+    '1.5.10':
+      CacheParameterGroupFamily: 'memcached1.5'
+
+Conditions:
+  HasSingleCacheNode: !Equals [!Ref NumCacheNodes, '1']
+
+######################
+# Resources section
+######################
+
+Resources:
+
+  CacheParameterGroup:
+    Type: 'AWS::ElastiCache::ParameterGroup'
+    Properties:
+      CacheParameterGroupFamily: !FindInMap [EngineVersionMap, !Ref EngineVersion, CacheParameterGroupFamily]
+      Description: !Ref 'AWS::StackName'
+      Properties: {}
+
+  CacheSubnetGroupName:
+    Type: 'AWS::ElastiCache::SubnetGroup'
+    Properties:
+      Description: !Ref 'AWS::StackName'
+      SubnetIds: !Ref ECSubnets
+      # SubnetIds: !Split
+      # - ','
+      # - 'Fn::ImportValue': !Sub '${ParentVPCStack}-SubnetsPrivate'
+
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Ref 'AWS::StackName'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 11211
+        ToPort: 11211
+        SourceSecurityGroupId: !Ref SourceAllow2AccessMemcached
+
+  CacheParameterGroupName:
+    Type: 'AWS::ElastiCache::ParameterGroup'
+    Properties:
+      CacheParameterGroupFamily: !FindInMap [EngineVersionMap, !Ref EngineVersion, CacheParameterGroupFamily]
+      Description: !Ref 'AWS::StackName'
+      Properties: {}
+
+  CacheCluster:
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      AutoMinorVersionUpgrade: true
+      AZMode: !If [HasSingleCacheNode, 'single-az', 'cross-az']
+      CacheNodeType: !Ref CacheNodeType
+      CacheParameterGroupName: !Ref CacheParameterGroupName
+      CacheSubnetGroupName: !Ref CacheSubnetGroupName
+      Engine: memcached
+      EngineVersion: !Ref EngineVersion
+      NumCacheNodes: !Ref NumCacheNodes
+      PreferredAvailabilityZones: 
+      - "us-east-1a"
+      - "us-east-1b"
+      PreferredMaintenanceWindow: 'sat:07:00-sat:08:00'
+      VpcSecurityGroupIds:
+      - !Ref SecurityGroup
+
+######################
+# Outputs section
+######################
+
+Outputs:
+  
+  ClusterName:
+    Description: 'The name of the cluster'
+    Value: !Ref CacheCluster
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterName'
+  
