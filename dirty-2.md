@@ -20,7 +20,9 @@
         * ***架構有的設定都要呈現在CloudFormation Resources那邊，才會做為評判標準***
 
 ### CloudFormation部署
-- VPC-v2先建，再弄ASG-v2 (兩個都先選在Public Subnet比較保險)
+- VPC-v2先建，再弄ASG-v2
+    > 注意AMI ID, Subnet ID
+    > Subnet ID兩個都先選在Public Subnet比較保險
 - 接著再Deploy其他的
     - CloudFront
     - S3

@@ -233,7 +233,9 @@ Resources:
           # Install Apache Web Server and PHP 
           yum install -y php72 wget httpd24
           # Download Lab files 
-          echo "path" > /var/www/html/index.html
+          echo "hello world!" > /var/www/html/index.html
+          mkdir /var/www/html/path
+          echo "path" > /var/www/html/path/index.html
           # Start web service 
           chkconfig httpd on 
           service httpd start
