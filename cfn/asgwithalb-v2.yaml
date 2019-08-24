@@ -6,11 +6,8 @@ Description: >-
 #   Web Security Group
 #   ALB Security Group
 #   ALB
-#   Auto Scaling Group
-#   LaunchConfiguration
-#   LaunchTemplate
-#   IAM Role
-#   IAM Policy
+#   2 Auto Scaling Group
+#   2 LaunchConfiguration
 #   Scaling Policy
 #   CloudWatch Alarm
 #   LifecycleHook
@@ -86,39 +83,6 @@ Parameters:
 
 Resources:
 
-  # IAMPolicy:
-  #   Type: AWS::IAM::ManagedPolicy
-  #   Properties:
-  #     PolicyDocument:
-  #       Version: 2012-10-17
-  #       Statement:
-  #       - Effect: Allow
-  #         Resource: "*"
-  #         Action:
-  #         - autoscaling:CompleteLifecycleAction
-  #         - ec2:DescribeTags
-
-  # InstanceRole:
-  #   Type: AWS::IAM::Role
-  #   Properties:
-  #     ManagedPolicyArns:
-  #     - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
-  #     - !Ref IAMPolicy
-  #     AssumeRolePolicyDocument:
-  #       Version: '2012-10-17'
-  #       Statement:
-  #       - Effect: Allow
-  #         Principal:
-  #           Service:
-  #           - ec2.amazonaws.com
-  #         Action: sts:AssumeRole
-
-  # InstanceProfile:
-  #   Type: AWS::IAM::InstanceProfile
-  #   Properties:
-  #     Roles:
-  #       - !Ref InstanceRole
-
   ## Security Group for EC2
 
   WebSecurityGroup:  
@@ -187,12 +151,12 @@ Resources:
       MinSize: !Ref AutoScalingGroupMinSize
       MaxSize: !Ref AutoScalingGroupMaxSize
       TargetGroupARNs: 
-      - Ref: ALBTargetGroup
+      - Ref: WebALBTargetGroup
       #LoadBalancerNames: 
       #- Ref: ApplicationLoadBalancer
       Tags:
       - Key: Name
-        Value: !Sub "${AWS::StackName}-ASG"
+        Value: !Sub "${AWS::StackName}-WebASG"
         PropagateAtLaunch: 'true'
 
   LaunchConfig:
@@ -211,8 +175,7 @@ Resources:
           # Install Apache Web Server and PHP 
           yum install -y php72 wget httpd24
           # Download Lab files 
-          wget https://raw.githubusercontent.com/KYPan0818/CodeDeploy-php-lb/master/index.php
-          mv index.php /var/www/html/
+          echo "hello world!" > /var/www/html/index.html
           # Start web service 
           chkconfig httpd on 
           service httpd start
@@ -224,55 +187,48 @@ Resources:
           #          --resource WebServerGroup  \
           #          --region ${AWS::Region}          
 
-  # # Launch Template
+  PathWebServerGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn: ALBListener
+    Properties:
+      AutoScalingGroupName: PathWebServerGroup
+      AvailabilityZones:
+      - !Select [ 0, !GetAZs '' ]
+      - !Select [ 1, !GetAZs '' ]
+      VPCZoneIdentifier: !Ref ASGSubnets
+      LaunchConfigurationName: !Ref LaunchConfig
+      DesiredCapacity: !Ref AutoScalingGroupDesiredSize
+      MinSize: !Ref AutoScalingGroupMinSize
+      MaxSize: !Ref AutoScalingGroupMaxSize
+      TargetGroupARNs: 
+      - Ref: PathWebALBTargetGroup
+      #LoadBalancerNames: 
+      #- Ref: ApplicationLoadBalancer
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-PathWebASG"
+        PropagateAtLaunch: 'true'
 
-  # MyLaunchTemplate:
-  #   Type: AWS::EC2::LaunchTemplate
-  #   Properties:
-  #     LaunchTemplateName: !Sub "${AWS::StackName}-LaunchTemplate"
-  #     LaunchTemplateData: 
-  #       SecurityGroupIds: 
-  #          - !Ref WebSecurityGroup
-  #       TagSpecifications: 
-  #         -
-  #           ResourceType: instance
-  #           Tags:
-  #             - Key: Name
-  #               Value: Web Server
-  #       UserData: 
-  #         Fn::Base64:
-  #           !Sub |
-  #           #!/bin/bash
-  #           # Install Apache Web Server and PHP 
-  #           yum install -y php72 wget httpd24
-  #           # Download Lab files 
-  #           wget https://raw.githubusercontent.com/KYPan0818/CodeDeploy-php-lb/master/index.php
-  #           mv index.php /var/www/html/
-  #           # Start web service 
-  #           chkconfig httpd on 
-  #           service httpd start
-  #           # Enable ssm-agent
-  #           yum install amazon-ssm-agent -y
-  #           /sbin/start amazon-ssm-agent
-  #           /opt/aws/bin/cfn-signal --exit-code $? \
-  #                    --stack  ${AWS::StackName} \
-  #                    --resource WebServerGroup  \
-  #                    --region ${AWS::Region}
-  #       IamInstanceProfile: 
-  #         Arn: !GetAtt InstanceProfile.Arn
-  #       KeyName: !Ref KeyName
-  #       ImageId: 
-  #         !If
-  #           - PreferredDefaultAMI
-  #           - !Ref LatestAMIId
-  #           # - !FindInMap [AMIMap, !Ref "AWS::Region", ami ]   
-  #       InstanceType: !Ref InstanceType
-  #       BlockDeviceMappings:
-  #         - DeviceName: /dev/xvda
-  #           Ebs:
-  #             VolumeSize: 10
-  #             VolumeType: gp2
-  #             DeleteOnTermination: true
+  PathWebLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      AssociatePublicIpAddress: true
+      # IamInstanceProfile: !GetAtt InstanceProfile.Arn
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestAmiId
+      SecurityGroups: [!Ref 'PathWebSecurityGroup']
+      InstanceType: !Ref InstanceType
+      # SpotPrice: 0.0045
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Install Apache Web Server and PHP 
+          yum install -y php72 wget httpd24
+          # Download Lab files 
+          echo "path" > /var/www/html/index.html
+          # Start web service 
+          chkconfig httpd on 
+          service httpd start
 
   # Scaling Policy
 
@@ -291,6 +247,22 @@ Resources:
       AutoScalingGroupName: !Ref 'WebServerGroup'
       Cooldown: '60'
       ScalingAdjustment: -1
+
+  PathWebServerScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref 'PathWebServerGroup'
+      Cooldown: '60'
+      ScalingAdjustment: 2
+
+  PathWebServerScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref 'PathWebServerGroup'
+      Cooldown: '60'
+      ScalingAdjustment: -1     
 
   # CloudWatch Alarm
 
@@ -326,6 +298,38 @@ Resources:
         Value: !Ref 'WebServerGroup'
       ComparisonOperator: LessThanThreshold
 
+  PathWebCPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-up if CPU > 75% for 5 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 75
+      AlarmActions: [!Ref 'PathWebServerScaleUpPolicy']
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref 'PathWebServerGroup'
+      ComparisonOperator: GreaterThanThreshold
+
+  PathWebCPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-down if CPU < 40% for 10 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 40
+      AlarmActions: [!Ref 'PathWebServerScaleDownPolicy']
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref 'PathWebServerGroup'
+      ComparisonOperator: LessThanThreshold
+
   # Life Cycle hook
 
   # LCH:
@@ -352,13 +356,13 @@ Resources:
     Properties:
       DefaultActions:
       - Type: forward
-        TargetGroupArn: !Ref ALBTargetGroup
+        TargetGroupArn: !Ref WebALBTargetGroup
       LoadBalancerArn:
         Ref: ApplicationLoadBalancer
       Port: '80'
       Protocol: HTTP
 
-  ALBTargetGroup:
+  WebALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       HealthCheckIntervalSeconds: 15
@@ -370,6 +374,19 @@ Resources:
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VpcId
+
+  PathWebALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 15
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId      
 
 ######################
 # Outputs section

@@ -31,7 +31,7 @@
     - 要記得修改Route Table
 
 ### CloudFormation部署
-- VPC先建，再弄ASG-v2，接著再Deploy其他的
+- VPC-v2先建，再弄ASG-v2，接著再Deploy其他的
     - CloudFront
     - S3
     - RDS-PostgreSQL
@@ -84,3 +84,54 @@
 - Flooding, XSS, SQL Injection, Bad Bot, 黑白名單都可以透過[awslabs/aws-waf-security-automations](https://github.com/awslabs/aws-waf-security-automations)實現
 - 部署上去來檔SQL Injection
 - Request Rate可以設高一點 ex. 10000/5mins
+
+### S3 Challenge
+- Account層級的Block Public Access要關掉
+- Bucket層級的Block Public Access看情況處理
+- 調整Bucket Policy，限定來源是Endpoint
+- 如果有明確要Deny的IP，可以用Bucket Policy鎖掉Public IP
+    > Private的不能
+- 開Access Log
+
+### ECS Challenge
+- 確認EC2 Instance OS是什麼，決定base image from哪個OS
+- 先在local寫dockerfile，驗證Application/UserData有辦法包成Container並順利執行
+    > 在每一行bash前面加上`RUN`，若有需要開機運行則是`CMD`，以下為以amazon linux為例，在dockerhub上面可以找到相對應得
+    ```
+    # 指定Base Image, 從docker hub找
+    FROM amazonlinux:1
+
+    COPY app.py /home/ec2-user
+
+    # 打包package
+    RUN yum update -y
+    RUN yum install python34 git curl -y
+    RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    RUN python get-pip.py
+    RUN pip install flask
+    RUN pip install boto3
+
+    # 宣告Container對外的Service port，沒指定也沒差，給別人看的
+    EXPOSE 80
+
+    # 指定Container開啟後要執行的指令，跟機器開機腳本差不多概念
+    CMD echo helloworld
+    CMD python --version
+    CMD python app.py
+    ```
+- 把Image推上去ECR
+- 部署ECS Service，mount到Target上面
+- ***這邊很重要，因為不知道要部署到ALB上面或者是NLB+API GW***
+    - ALB
+        > 應該是這個就可以了
+        1. Target Group掛上去
+        2. 設定ALB Routing
+        3. 給Endpoint測試看看
+        4. 失敗的話就是API Gateway
+    - NLB + API GW
+        1. Target Group掛上去
+        2. 設定NLB Routing
+        3. 給Endpoint測試看看
+        4. 新增API Gateway
+        5. 設定VPC Link，讓API GW指過去NLB，可以參考[這篇文件](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-private-integration.html)
+        ![](https://i.imgur.com/jrDptj7.png)

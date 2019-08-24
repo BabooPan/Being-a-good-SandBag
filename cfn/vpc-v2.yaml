@@ -9,7 +9,7 @@ Description: >-
 #   1 Public Route Table
 #   2 Private Route Tables
 #   2 Public Subnets
-#   2 Private Subnets
+#   4 Private Subnets
 #   NACLs
 #   Security Groups
 #   S3 Endpoint and mount into RouteTables
@@ -192,6 +192,28 @@ Resources:
         - 
           Key: "Name"
           Value: "Private Subnet 2"
+  
+  DBSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: 10.0.2.0/24
+      Tags:
+        - 
+          Key: "Name"
+          Value: "DB Subnet 1"
+
+  DBSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: 10.0.130.0/24
+      Tags:
+        - 
+          Key: "Name"
+          Value: "DB Subnet 2"
 
   ## Route Table Association to subnets
 
@@ -220,6 +242,20 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+    DependsOn: "PrivateRouteTable2"
+
+  DBSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+    DependsOn: "PrivateRouteTable1"
+
+  DBSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBSubnet2
       RouteTableId: !Ref PrivateRouteTable2
     DependsOn: "PrivateRouteTable2"
 
@@ -262,6 +298,17 @@ Resources:
     Type: 'AWS::EC2::SubnetNetworkAclAssociation'
     Properties:
       SubnetId: !Ref PrivateSubnet2
+      NetworkAclId: !Ref NetworkAclPrivate
+  
+  SubnetNetworkAclAssociationADB:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref DBSubnet1
+      NetworkAclId: !Ref NetworkAclPrivate
+  SubnetNetworkAclAssociationBDB:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref DBSubnet2
       NetworkAclId: !Ref NetworkAclPrivate
   
   ## NACL Rules
@@ -375,25 +422,25 @@ Resources:
         - !Ref PrivateRouteTable1
         - !Ref PrivateRouteTable2
 
-  DDBEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VPC
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
-      VpcEndpointType: "Gateway"
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal: "*"
-            Action:
-              - "dynamodb:*"
-            Resource:
-              - "*"
-      RouteTableIds:
-        - !Ref PublicRouteTable
-        - !Ref PrivateRouteTable1
-        - !Ref PrivateRouteTable2      
+  # DDBEndpoint:
+  #   Type: AWS::EC2::VPCEndpoint
+  #   Properties:
+  #     VpcId: !Ref VPC
+  #     ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+  #     VpcEndpointType: "Gateway"
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal: "*"
+  #           Action:
+  #             - "dynamodb:*"
+  #           Resource:
+  #             - "*"
+  #     RouteTableIds:
+  #       - !Ref PublicRouteTable
+  #       - !Ref PrivateRouteTable1
+  #       - !Ref PrivateRouteTable2      
 
 
 ######################
@@ -414,11 +461,11 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-S3EndpointGW'
 
-  DDBEndpoint:
-    Description: DynamoDB Endpoint Gateway ID
-    Value: !Ref DDBEndpoint
-    Export:
-      Name: !Sub '${AWS::StackName}-DDBEndpointGW'
+  # DDBEndpoint:
+  #   Description: DynamoDB Endpoint Gateway ID
+  #   Value: !Ref DDBEndpoint
+  #   Export:
+  #     Name: !Sub '${AWS::StackName}-DDBEndpointGW'
 
   PublicSubnet1:
     Description: The subnet ID to use for public subnet
@@ -443,6 +490,18 @@ Outputs:
     Value: !Ref PrivateSubnet2
     Export:
       Name: !Sub '${AWS::StackName}-PrivateSubnet2'
+
+  DBSubnet1:
+    Description: The subnet ID to use for private subnet
+    Value: !Ref DBSubnet1
+    Export:
+      Name: !Sub '${AWS::StackName}-DBSubnet1'
+
+  DBSubnet2:
+    Description: The subnet ID to use for private subnet
+    Value: !Ref DBSubnet2
+    Export:
+      Name: !Sub '${AWS::StackName}-DBSubnet2'    
   
   # WebSG:
   #   Description: The subnet ID to use for private subnet
