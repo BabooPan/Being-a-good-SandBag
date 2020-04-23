@@ -1,4 +1,19 @@
-# 打沙包懶人包
+# 打沙包
+
+- [懶人包](#懶人包)
+- [Default套路 - 標準三層式結構](#Default套路---標準三層式結構)
+- [EC2](#＊EC2)
+    - [AMI](#AMI)
+    - [AutoScaling](#AutoScaling)
+    - [EBS](#EBS)
+    - [EFS](#EFS)
+- [ECS](#ECS)
+- [S3](#S3)
+- [VPC](#＊VPC)
+- [ELB](#ELB)
+- [CloudWatch](#CloudWatch)
+
+## 懶人包
 
 1. 完成需求
    - 驗證是否Application需求
@@ -25,18 +40,6 @@ i=0 ; while true ; do curl ALB_ENDPOINT ; sleep 1 ; done
         - ***架構有的設定都要呈現在CloudFormation Resources那邊，才會做為評判標準***
     - Performance
     - Cost
-
-- [Default套路 - 標準三層式結構](#Default套路---標準三層式結構)
-    - [EC2](#EC2)
-        - [AMI](#AMI)
-        - [AutoScaling](#AutoScaling)
-        - [EBS](#EBS)
-        - [EFS](#EFS)
-    - [S3](#S3)
-- [Network](#Network)
-    - [VPC](#*VPC)
-    - [ELB](#ELB)
-    - [CloudWatch](#CloudWatch)
 
 ## Default套路 - 標準三層式結構
 
@@ -107,7 +110,7 @@ i=0 ; while true ; do curl ALB_ENDPOINT ; sleep 1 ; done
     - Network Traffic
     - ALB Traffic
     - ALB RequestCount → 推推，ResponseTime會牽連到DB端，不太準
-    - ALB ActiveConnectionCount 
+    - ALB ActiveConnectionCount
     - ALB HTTPCode_ELB_5XX_Count
     - RDS Connection → 推推
     - RDS CPU
@@ -144,7 +147,7 @@ i=0 ; while true ; do curl ALB_ENDPOINT ; sleep 1 ; done
     - ALB的看region在哪
     - Request rate limit先設定寬鬆一點，檢察單位為同一個IP五分鐘算一次，最小為2000次，先設個一萬或十萬
     - Flooding, XSS, SQL Injection, Bad Bot, 黑白名單都可以透過[awslabs/aws-waf-security-automations](https://github.com/awslabs/aws-waf-security-automations)實現
-    - https://gitlab.com/ecloudture-dev/blog/aws-waf-test
+    - <https://gitlab.com/ecloudture-dev/blog/aws-waf-test>
 
 ### 實作Resilient - 滿足HA、Scalability
 
@@ -223,28 +226,27 @@ i=0 ; while true ; do curl ALB_ENDPOINT ; sleep 1 ; done
     CMD python --version
     ```
 
-2. 在本機驗證好一切如預期運行，再推上去ECR
+3. 在本機驗證好一切如預期運行，再推上去ECR
+   - Deploy in EC2，如果用Fargate則可以跳至6
 
-> Deploy in EC2，如果用Fargate則可以跳至6
+4. 建立ECS Cluster，記得要指定ECS optimized AMI，AMI ID要看[文件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html)
+5. 在UserData上面寫入Cluster name，[文件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_container_instance.html)
 
-3. 建立ECS Cluster，記得要指定ECS optimized AMI，AMI ID要看[文件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html)
-4. 在UserData上面寫入Cluster name，[文件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_container_instance.html)
+    ```bash
+    #!/bin/bash
+    echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
+    ```
 
-```bash
-#!/bin/bash
-echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
-```
-
-5. 確認ECS Cluster底下是否有EC2，如果有，再開始建ECS Service
-6. 以下參考：https://gitlab.com/ecloudture/aws/aws-ecs-workshop
-7. ECS Services預設只針對CPU/Memory去成長，要看情況搭配，或是把container/task custom metrics再丟出來往後處理
+6. 確認ECS Cluster底下是否有EC2，如果有，再開始建ECS Service
+7. 以下參考：<https://gitlab.com/ecloudture/aws/aws-ecs-workshop>
+8. ECS Services預設只針對CPU/Memory去成長，要看情況搭配，或是把container/task custom metrics再丟出來往後處理
 
 - 只有創建ECS Service當下可以mapping到target group，若有變更就要recreate service
 
-## *EC2
+## ＊EC2
 
 - 先驗證userdata是否有陷阱
-    > 腳本不完全、開頭沒有`#!/bin/bash`、套件少安裝、權限不足等等問題 
+    > 腳本不完全、開頭沒有`#!/bin/bash`、套件少安裝、權限不足等等問題
 - 先搞懂EC2當中application怎麼動作的，以便後續ELB驗證
     - HTTP
     - Health check的path、機制、duration
@@ -273,6 +275,7 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
     > license-type會定義給你看要byol還是aws發
 
     Json裡面定義一些關於哪個disk要轉ami的訊息
+
     ```Json
     [{
         "Description": "Ubuntu 2019.04",
@@ -283,6 +286,7 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
         }
     }]
     ```
+
     然後會吐一個task id回來
 6. `aws ec2 describe-import-image-tasks --import-task-ids import-ami-abcd1234`
     換掉task id去看現在進程到哪邊
@@ -361,11 +365,11 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
 - `docker build -t <TAG> <PATH_OF_DOCKERFILE>` 抓dockerfile打包image
 - `docker run -d -p <HOST_PORT>:<CONTAINER_PORT> <IMAGE_TAG>` 跑起來看
 - `docker ps -a` 看所有運行中的container
-- `docker images -a` 列出host上面的images 
+- `docker images -a` 列出host上面的images
 
 ### ＊ECS Service
 
-https://gitlab.com/ecloudture/aws/aws-ecs-workshop
+<https://gitlab.com/ecloudture/aws/aws-ecs-workshop>
 
 - 會先跟你說service port在哪邊，或是用`docker run`那個images下去之後用`docker ps`看expose port是哪個
 - 把UserData打包進dockerfile當中，記得前面要加`RUN`
@@ -381,9 +385,9 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 > 如果有特別指定再考慮
 
-- https://github.com/ecloudvalley/Run-Serverless-CICD-Pipeline-with-AWS-CodeStar-and-Develop-with-AWS-Cloud9
-- https://gitlab.com/ecloudture/olympic/build-serverless-environment-with-aws-lambda
-- https://gitlab.com/ecloudture/aws/aws-ai-workshop
+- <https://github.com/ecloudvalley/Run-Serverless-CICD-Pipeline-with-AWS-CodeStar-and-Develop-with-AWS-Cloud9>
+- <https://gitlab.com/ecloudture/olympic/build-serverless-environment-with-aws-lambda>
+- <https://gitlab.com/ecloudture/aws/aws-ai-workshop>
 - event-driven automation workload
 - deploy with API Gateway
 - 需要放進去VPC的話，那個subnet ***需要有NAT routing才會讓lambda有訪問internet的能力***
@@ -394,8 +398,8 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 ## S3
 
-- https://gitlab.com/ecloudture/olympic/private/s3-storage-class-lifecycle-policy
-- https://gitlab.com/ecloudture/olympic/aws-s3-cors
+- <https://gitlab.com/ecloudture/olympic/private/s3-storage-class-lifecycle-policy>
+- <https://gitlab.com/ecloudture/olympic/aws-s3-cors>
 
 ### Cross region replica
 
@@ -404,7 +408,7 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 ### Access log
 
-- 要開就開ㄅ：https://docs.aws.amazon.com/AmazonS3/latest/user-guide/server-access-logging.html
+- 要開就開ㄅ：<https://docs.aws.amazon.com/AmazonS3/latest/user-guide/server-access-logging.html>
 
 ### Bucket policy
 
@@ -422,13 +426,11 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 ### [LifeCycle Policy](https://gitlab.com/ecloudture-dev/blog/s3-storage-class-lifecycle-policy)
 
-# Network
+## ＊VPC
 
 - Multi office could communicate with each other
 
 > SA Pro/Networking的範圍
-
-## ＊VPC
 
 - Public流量檢查，記得Instance要有Public IP
 
@@ -490,16 +492,22 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 ### Session
 
-- 看sticky seesion的需求
+- 看有沒有sticky session的需求
+- 有個話在Target group可以開啟
+
+![sticky session](https://i.imgur.com/tS54y3Y.png)
 
 ### Routing Algorithm
 
 - ALB上面可以在每一個listener去針對不同需求下規則，Path/Host/Port導流到不同的target group當中處理
+- 有分Path的話，EC2裡面也要有相對應得path/directory才會分流進去，不像virtual host可以直接導流進去某個path/directory
 
 ### SSL Termination
 
 - 把HTTPS/TLS做加解密的動作在ELB上面解決，讓EC2 CPU的loading shift出來做該做的事情
 - 一般搭配ACM處理
+
+ > ACM可以掛載到ALB、CloudFront上面
 
 ## CloudFormation
 
@@ -519,16 +527,16 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 - 可以拆掉分別用stack建立 → 相對簡單
 - Serverless的部分用SAM去部署比較簡單
 - 常用飯粒們  
-    - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
-    - https://github.com/awslabs/aws-cloudformation-templates
-    - https://github.com/widdix/aws-cf-templates
+    - <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html>
+    - <https://github.com/awslabs/aws-cloudformation-templates>
+    - <https://github.com/widdix/aws-cf-templates>
 - Container
     - [pahud/ecs-cfn-refarch](https://github.com/pahud/ecs-cfn-refarch)
     - [aws-samples/amazon-eks-refarch-cloudformation](https://github.com/aws-samples/amazon-eks-refarch-cloudformation)
 - 沒什麼用的
-    - https://gitlab.com/ecloudture-dev/blog/aws-basic-of-cloudformation
-    - https://gitlab.com/ecloudture/olympic/how-to-build-an-elastic-structure/blob/master/lab-network_yaml.yaml
-    - https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/05-deploy-your-cloudformation-template
+    - <https://gitlab.com/ecloudture-dev/blog/aws-basic-of-cloudformation>
+    - <https://gitlab.com/ecloudture/olympic/how-to-build-an-elastic-structure/blob/master/lab-network_yaml.yaml>
+    - <https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/05-deploy-your-cloudformation-template>
 
 ### CloudFormer
 
@@ -551,11 +559,20 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 ### Health check & Failover
 
-- https://gitlab.com/ecloudture-dev/aws/multi-region-failover-with-amazon-route53
+- <https://gitlab.com/ecloudture-dev/aws/multi-region-failover-with-amazon-route53>
 
 ### test record set
 
 - Route53點進去Hosted Zone之後，上面有個地方可以開始測試這個Zone的records
+
+### Private Host Zone
+
+- 要attach到VPC才會生效
+- 一個VPC只能attach一個
+
+### resolution log
+
+> 應該不會出
 
 ## VPN
 
@@ -565,11 +582,11 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 2. 建立CGW、指到對接端口
 3. 建立VPN Connection
 
-- https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/03-vpn-connection
+- <https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/03-vpn-connection>
 
 ## AutoScaling Group
 
-- https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/04-elastic-your-architecture
+- <https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/04-elastic-your-architecture>
 
 ### Launch Template
 
@@ -615,17 +632,6 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 #### schedule, event rule based
 
 - 可以依據事件或是排成觸發Lambda作業
-
-## Route53
-
-### Private Host Zone
-
-- 要attach到VPC才會生效
-- 一個VPC只能attach一個
-
-### resolution log
-
-> 應該不會出
 
 ## CloudTrail
 
