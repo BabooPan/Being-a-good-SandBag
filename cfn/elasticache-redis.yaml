@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ElastiCache Redis'
+Description: 'This template is an example for ElastiCache Redis.'
 
 Metadata:
   'AWS::CloudFormation::Interface':

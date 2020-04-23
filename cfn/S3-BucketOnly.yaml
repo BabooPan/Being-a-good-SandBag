@@ -12,9 +12,6 @@ Parameters:
     Description: Your S3 Bucket name
     Type: String
 
-  S3EndpointId:
-    Description: The S3 Endpoint ID of VPC
-    Type: String
 
 ######################
 # Resources section
@@ -38,35 +35,6 @@ Resources:
       #   - AllowedOrigins: 
       #       - '*'
       #   - MaxAge: 3000
-        
-
-  S3BucketPolicyViaEndpoint:
-    Type: 'AWS::S3::BucketPolicy'
-    Properties:
-      Bucket: !Ref S3Bucket
-      PolicyDocument: 
-        Statement: 
-          - 
-            Action: 
-              - "s3:GetObject"
-            Effect: "Allow"
-            Resource: !Sub '${S3Bucket.Arn}/*'
-            Principal: "*"
-            Condition:
-              StringEquals:
-                # 'aws:sourceVpce': {'Fn::ImportValue': !Sub '${NetworkStackName}-S3EndpointGWID'}  
-                aws:sourceVpce': !Ref S3EndpointId
-
-  S3BucketPolicyPublic:
-    Type: 'AWS::S3::BucketPolicy'
-    Properties:
-      Bucket: !Ref S3Bucket
-      PolicyDocument:
-        Statement:
-        - Principal: '*'
-          Action: 's3:GetObject'
-          Effect: Allow
-          Resource: !Sub '${S3Bucket.Arn}/*'
 
 ######################
 # Outputs section

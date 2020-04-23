@@ -112,7 +112,6 @@ Resources:
       Properties: {}
 
   CacheCluster:
-    DeletionPolicy: Snapshot
     UpdateReplacePolicy: Snapshot
     Type: AWS::ElastiCache::CacheCluster
     Properties:

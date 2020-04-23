@@ -1,30 +1,58 @@
 # 打沙包懶人包
+
 1. 完成需求
+   - 驗證是否Application需求
+   - 有需要DB, Shared storage, Redis的話可以先啟用相關服務
 2. 完善架構，看情境盡可能做到Well-Architect
+   - AutoScaling
+   - ELB & Target group
+   - CloudFront
 3. 畫架構圖來輔助說明設計概念
 4. 包成CloudFormation Template
-* 千萬不要為了追求Cost、Latency，而放棄其他層面該做的
-* Dashboard分數為評比項目之一，並不代表真正成績，我們會再review架構做整體評分：
-    * **Security**
-    * **Automation**
-        * 不管你是要自己寫成一包部署下去
-        * 或是Github找template直接deploy之後再改設定
-        * ***架構有的設定都要呈現在CloudFormation Resources那邊，才會做為評判標準***
-    * Performation
-    * Cost
+
+- 可以利用 `curl` 檢查application是否活著
+
+```bash
+i=0 ; while true ; do curl ALB_ENDPOINT ; sleep 1 ; done
+```
+
+- 千萬不要為了追求Cost、Latency，而放棄其他層面該做的
+- Dashboard分數為評比項目之一，並不代表真正成績，我們會再review架構做整體評分：
+    - **Security**
+    - **Automation**
+        - 不管你是要自己寫成一包部署下去
+        - 或是Github找template直接deploy之後再改設定
+        - ***架構有的設定都要呈現在CloudFormation Resources那邊，才會做為評判標準***
+    - Performance
+    - Cost
+
+- [Default套路 - 標準三層式結構](#Default套路---標準三層式結構)
+    - [EC2](#EC2)
+        - [AMI](#AMI)
+        - [AutoScaling](#AutoScaling)
+        - [EBS](#EBS)
+        - [EFS](#EFS)
+    - [S3](#S3)
+- [Network](#Network)
+    - [VPC](#*VPC)
+    - [ELB](#ELB)
+    - [CloudWatch](#CloudWatch)
 
 ## Default套路 - 標準三層式結構
+
 - 有預設的機器，當中會需要塞UserData拿最新的包，UserData會啟用那個程序開始算分
 - 網路上的code都能用
 - ***會有support service list，以上面有支援的為主***
 
 ### 權限確認
+
 - 不能建立IAM Role，但可以看能利用的權限有哪些
 - 如果有給AccessKey，可以透過`aws configure`配置
 - list role不知道會不會過，下Command Line看看：`aws iam list-roles --query Roles[*].Arn`，抓一下有什麼Service Roles可以玩
 - 當跳出Permission Deny，確認Region是否在允許範圍內、服務能不能用、機器大小或是IAM不能用
 
 ### 網路環境確認
+
 - CIDR範圍、切割狀況
 - VPC有沒有啟用DNS Resolution
     - Enable DNS resolution
@@ -33,6 +61,7 @@
 - Enable VPC Flow、推去CloudWatch Logs方便查看
 
 ### 起手式：EC2 + AutoScaling + ELB + CloudFront
+
 1. Create空的ElB，Listener設定80，Security Group配置allow HTTP from `0.0.0.0/0`
 2. CloudFront指定origin到ELB
     - 都先default cache不用改東西
@@ -54,7 +83,6 @@
     - Instance Type
     - Pricing Model
     - Security Group
-    
 7. 建立AutoScaling Group
     - 如果Spot不能用，就不用混搭
     - 如有限定Instance Type，也不用混搭
@@ -70,13 +98,14 @@
 13. 監控整體運作狀況，做適當調整
 
 ### 監控
+
 - Application有需求要寫Log的話，直接靠CloudWatch Agent推出來
 - 靠CloudWatch Metrics, Alarms解決
 - 先把有用的Metrics都先配置一輪Alarm
     - CPU above 70%, under 32%
     - Memory above 1.5G
-    - Network Traffic 
-    - ALB Traffic 
+    - Network Traffic
+    - ALB Traffic
     - ALB RequestCount → 推推，ResponseTime會牽連到DB端，不太準
     - ALB ActiveConnectionCount 
     - ALB HTTPCode_ELB_5XX_Count
@@ -99,6 +128,7 @@
     - Performance跟EBS一樣，General Purpose可以解決大部分場景；如果場景I/O相對敏感，建議改為 ***Max I/O***
 
 ### 加強安全性
+
 1. Security Group Chain，讓最外面的那個全開就好，符合最小暴露原則
 2. 如果同個SG裡面要互通，記得要allow protocol from 自己的sg-id
 3. NACL Outbound只開放必要流量
@@ -113,11 +143,11 @@
     - CloudFront的要放在us-east-1
     - ALB的看region在哪
     - Request rate limit先設定寬鬆一點，檢察單位為同一個IP五分鐘算一次，最小為2000次，先設個一萬或十萬
-    
     - Flooding, XSS, SQL Injection, Bad Bot, 黑白名單都可以透過[awslabs/aws-waf-security-automations](https://github.com/awslabs/aws-waf-security-automations)實現
     - https://gitlab.com/ecloudture-dev/blog/aws-waf-test
 
 ### 實作Resilient - 滿足HA、Scalability
+
 - 大原則： ***避免單點故障的可能性***
 - VPC網路規劃時就要有Multi-AZ的概念，呈現對稱網路
 - AutoScaling Group最少兩台機器跨越兩個AZ
@@ -130,6 +160,7 @@
 - CloudFront上面可以設定Error Page，假設後方出現4xx/5xx的話，導流去某一個path，ex. error.html，上面寫說網站現正維護中之類的
 
 ### RDS
+
 - [Read replica](https://gitlab.com/ecloudture/olympic/private/use-route-53-with-read-replica-rds-database)
     1. 看能不能做Vertical Scale，換Instance Type
         > 八成不能
@@ -143,6 +174,7 @@
     > 可以point-in-time restore
 
 ### DynamoDB
+
 - Capacity mode: on-demand / provisioned，整體效能取決於這
     > 我的觀察是通通開on-demand mode下去比較穩
     > 如果不給弄，就要尻AutoScaling來調整Capaciry Unitㄌ
@@ -152,18 +184,22 @@
     - On-Demand Backup and Restore，完整手動備份
 
 ### ElastiCache
+
 - 預設下只有單個AZ作用
     > 有單點故障可能性，要看場景搭配
 - Read節點是獨立出來的，解決方法跟Read Replica一樣尬DNS
 - Cluster mode or not
     - 取決於有沒有要跨AZ部署
 
-### Deploy Application to ECS 
+### Deploy Application to ECS
+
 ***＊必先完成上面EC2 level，再來考慮做ECS***
+
 1. 確認EC2 Instance OS是什麼，決定base image from哪個OS
 2. 先在local寫dockerfile，驗證Application/UserData有辦法包成Container並順利執行
     > 在每一行bash前面加上`RUN`，若有需要開機運行則是`CMD`，以下為以amazon linux為例，在dockerhub上面可以找到相對應得
-    ```
+
+    ```bash
     # 指定Base Image, 從docker hub找
     FROM amazonlinux:1
 
@@ -186,20 +222,27 @@
     CMD echo helloworld
     CMD python --version
     ```
+
 2. 在本機驗證好一切如預期運行，再推上去ECR
+
 > Deploy in EC2，如果用Fargate則可以跳至6
+
 3. 建立ECS Cluster，記得要指定ECS optimized AMI，AMI ID要看[文件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html)
 4. 在UserData上面寫入Cluster name，[文件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_container_instance.html)
-```
+
+```bash
 #!/bin/bash
 echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
 ```
+
 5. 確認ECS Cluster底下是否有EC2，如果有，再開始建ECS Service
 6. 以下參考：https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 7. ECS Services預設只針對CPU/Memory去成長，要看情況搭配，或是把container/task custom metrics再丟出來往後處理
+
 - 只有創建ECS Service當下可以mapping到target group，若有變更就要recreate service
 
-## ＊EC2
+## *EC2
+
 - 先驗證userdata是否有陷阱
     > 腳本不完全、開頭沒有`#!/bin/bash`、套件少安裝、權限不足等等問題 
 - 先搞懂EC2當中application怎麼動作的，以便後續ELB驗證
@@ -213,11 +256,14 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
     > 不夠的話，看能不能發Support調整數量
 
 ### AutoRecovery
+
 1. 針對Physical的health check做listening，有問題則保留EC2 metadata轉移到另一台Physical Host
 2. EC2 > Status Check > Alarm > Repair this instance
 
 ### [VMImport](https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)
+
 > 應該不會出，以防萬一可以去找官方文件有懶人包
+
 1. 在地端VM上做一狗票事前確認：關防火牆、enable DHCP...等等，讓他可以適用於VPC配發網路訊息
 2. 匯出成vhd/vmdk
 3. 上傳vhd/vmdk到S3
@@ -227,7 +273,7 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
     > license-type會定義給你看要byol還是aws發
 
     Json裡面定義一些關於哪個disk要轉ami的訊息
-    ```
+    ```Json
     [{
         "Description": "Ubuntu 2019.04",
         "Format": "vmdk",
@@ -243,15 +289,18 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
 7. 轉完後，會在AMI console上面看到那個ami，再看看出來看能不能順利開成ec2
 
 ### AMI
+
 - 記得要打包，不要勾`No reboot`，做完整的package比較保險
 
 ### AutoScaling
+
 - Prefer用Launch Template，設定上相對快速、彈性
     > 可以在架構上highlight這點（？
 - 如果允許混搭，那就可以混instance types & pricing options
 - Health check通常會搭配用ELB，選成EC2的話會以檢查physical host function為主
 
 ### Re-Run Userdata after launched EC2
+
 - [Linux](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.htm)
     - 看[Cloud-init](https://cloudinit.readthedocs.io/en/latest/topics/examples.html)文件去修改Service配置黨
     - [Knoledage center有把它改成每次restart後都會重新執行userdata的範例](https://aws.amazon.com/premiumsupport/knowledge-center/execute-user-data-ec2/)
@@ -262,17 +311,21 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
     - 每次都要再去勾才會生效
 
 ### Instance Type
+
 - 看有沒有用對，但八成會限定`t2.micro`
 - 不然可以搭配AutoScaling做混搭的request
 
 ### Spot Instance / Fleet
+
 > 八成沒權限
 
 ### Instance Store
+
 - 要注意一但Stop/Terminated就會消失
 - 最好轉存到EBS、CloudWatch Logs上面做長期Store
 
 ### EBS
+
 - 容量不夠的話可以直接extend，但不能縮；改完建議做restart完整load進來一次，不要在OS直接調整
 - 撞到Disk I/O的話 → 調IOPS
 - Snapshot
@@ -286,6 +339,7 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
     - 複製Snapshot/AMI過去backup region
 
 ### EFS
+
 - Cross region
     - 可以透過VPC Peering的方式，把網路環境串接起來，在一台機器上面mount不同account/region的efs，在機器當中做replica
 - [backup plan](https://docs.aws.amazon.com/efs/latest/ug/efs-backup-solutions.html)
@@ -293,12 +347,16 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
     2. EFS對抄
 
 ## ECS
+
 - 建Service的時候如果沒有特別指定說要Service Discovery，就把勾勾勾掉
+
 ### ECR
+
 - 建好會有`docker push <ECR_TAG>`的資訊可以複製貼上
 - 請記得點開`View push commands`
 
 ### Docker command
+
 - `docker login`登入ECR
 - `docker build -t <TAG> <PATH_OF_DOCKERFILE>` 抓dockerfile打包image
 - `docker run -d -p <HOST_PORT>:<CONTAINER_PORT> <IMAGE_TAG>` 跑起來看
@@ -306,6 +364,7 @@ echo ECS_CLUSTER=your_cluster_name >> /etc/ecs/ecs.config
 - `docker images -a` 列出host上面的images 
 
 ### ＊ECS Service
+
 https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 
 - 會先跟你說service port在哪邊，或是用`docker run`那個images下去之後用`docker ps`看expose port是哪個
@@ -319,7 +378,9 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 - register to target group，只有創建service當下可以mapping到target group，若有變更就要recreate service
 
 ## Lambda with API Gateway
+
 > 如果有特別指定再考慮
+
 - https://github.com/ecloudvalley/Run-Serverless-CICD-Pipeline-with-AWS-CodeStar-and-Develop-with-AWS-Cloud9
 - https://gitlab.com/ecloudture/olympic/build-serverless-environment-with-aws-lambda
 - https://gitlab.com/ecloudture/aws/aws-ai-workshop
@@ -332,74 +393,116 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
 - timeout & memory注意要調整
 
 ## S3
+
 - https://gitlab.com/ecloudture/olympic/private/s3-storage-class-lifecycle-policy
 - https://gitlab.com/ecloudture/olympic/aws-s3-cors
+
 ### Cross region replica
+
 1. 要先建好replica對象Bucket
 2. 設定完成之後的動作，才會複寫過去
+
 ### Access log
+
 - 要開就開ㄅ：https://docs.aws.amazon.com/AmazonS3/latest/user-guide/server-access-logging.html
+
 ### Bucket policy
+
 - 看[Sample](https://docs.aws.amazon.com/AmazonS3/latest/dev/example-bucket-policies.html)去改規則，改成題目所要求的
 
 ### Block public access
+
 - 有那個 ***Block public access*** 要關掉
 - account/bucket兩個層級都要確認
 
 ### [Request rate limit](https://aws.amazon.com/about-aws/whats-new/2018/07/amazon-s3-announces-increased-request-rate-performance/)
+
 - 加減注意會不會撞到這個
 - 應該是很難
 
 ### [LifeCycle Policy](https://gitlab.com/ecloudture-dev/blog/s3-storage-class-lifecycle-policy)
 
-
 # Network
+
 - Multi office could communicate with each other
+
 > SA Pro/Networking的範圍
 
 ## ＊VPC
+
 - Public流量檢查，記得Instance要有Public IP
-![](https://i.imgur.com/gtD3WLb.png)
+
+![VPC Flow](https://i.imgur.com/gtD3WLb.png)
+
 - Private的就多一層NAT
-![](https://i.imgur.com/nLDslw0.jpg)
+
+![VPC Flow with NAT](https://i.imgur.com/nLDslw0.jpg)
+
 - 記得NAT要放在Public Subnet中才能運作
-- 一堆舞ㄟ謀ㄟ的眉角要去看[Netwokring筆記
-](https://paper.dropbox.com/doc/Networking-YofiQ5plUchSSQe1G0gky#:uid=559309021804696798151534&h2=Tips)
+
+- 一堆舞ㄟ謀ㄟ的眉角要去看[Netwokring筆記](https://paper.dropbox.com/doc/Networking-YofiQ5plUchSSQe1G0gky#:uid=559309021804696798151534&h2=Tips)
+
 ### DNS Resolver
+
 - VPC內要開兩個設定才會讓DNS正常服務：
     1. enableDNSHostname
     2. enableDNSSupport
+
 ### Route Table
+
 - 路由紀錄有可能隨時會被改
+
 ### NAT Instance / Gateway
+
 - 比較哪一個比較貼近實務場景，一般是建議透過NAT GW實作
 - 為了可用性＆效能考量，會建議一個AZ配置一個NAT GW，但這樣Route Table就會比較複雜些 → ***從中要做取捨***
+
 ### Security Group
+
 - Security Group只有對外Public的部分才allow `0.0.0.0/0`，不然一率用SG Chain做串接
 - ***有可能隨時會被改***
+
 ### NACL
+
 - outbound只讓最小流量出去，像是SSH, HTTP, HTTPS
 - inbound ***有明確不允許*** 哪些流量、針對大量IP要做Deny的時候再設定
 - ***有可能隨時會被改***
+
 ### Network bottleneck
+
 - Instance Type頂到肺
 - NAT GW port炸裂
 
 ### [VPC Flow Log](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) if needed
 
 ## ELB
+
 - 最小deploy需要/27，才能作節點Scale
 - Target group的health check機制注意
 - keepalive如果有特別說的話再改
+- Target group多了一個選項，可以把Request送去較少請求的運算單位
+
+![Least outstanding requests](https://i.imgur.com/uTNZAk0.png)
+
+- Load Balancer底下設定可以延長Connection的時間 `Idle timeout`，以避免HTTP request timeout就掉包，無法回應
+
+![Idle timeout](https://i.imgur.com/vBM2gCT.png)
+
 ### Session
+
 - 看sticky seesion的需求
+
 ### Routing Algorithm
+
 - ALB上面可以在每一個listener去針對不同需求下規則，Path/Host/Port導流到不同的target group當中處理
+
 ### SSL Termination
+
 - 把HTTPS/TLS做加解密的動作在ELB上面解決，讓EC2 CPU的loading shift出來做該做的事情
 - 一般搭配ACM處理
 
 ## CloudFormation
+
 - 分層級去看
     - VPC, Subnet, Route, Gateway, SG, NACL, Endpoint
     - EC2, Launch configuration/template, AutoScaling Group, Scaling Policy, CloudWatch Alarm
@@ -428,6 +531,7 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
     - https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/05-deploy-your-cloudformation-template
 
 ### CloudFormer
+
 1. CloudFormation > Sample > 最下面
 2. 餵Username & password
 3. 看IAM有沒有權限建立起來，這Template會去建Role，有可能權限被鎖不能用
@@ -436,97 +540,143 @@ https://gitlab.com/ecloudture/aws/aws-ecs-workshop
     > 再去CloudFormation Designer裡面轉成yaml比較好看（私心推薦
 
 ## Route53
+
 - 主要應該會是透過Private Hosted Zone
 - 要記得associate VPC，那個VPC才會生效
 - 一個VPC只能associate一個Private Hosted Zone
+
 ### Alias record
+
 - 有內建health check的功能在裡面，如果record有問題就不會送進去那個ip
 
 ### Health check & Failover
+
 - https://gitlab.com/ecloudture-dev/aws/multi-region-failover-with-amazon-route53
 
 ### test record set
+
 - Route53點進去Hosted Zone之後，上面有個地方可以開始測試這個Zone的records
 
 ## VPN
+
 ### site2site vpn
+
 1. 建立VGW、Attach到VPC
 2. 建立CGW、指到對接端口
 3. 建立VPN Connection
+
 - https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/03-vpn-connection
 
 ## AutoScaling Group
+
 - https://gitlab.com/ecloudture/aws/ect-course/aws-architecture/tree/master/04-elastic-your-architecture
-### Launch Template 
+
+### Launch Template
+
 ### Scaling Policy
 
 ## CloudFront
+
 ### Cache Behavior
+
 ### Error Page
+
 ### Validation
 
 ## CloudWatch
-### Mertic
-#### custom
+
+### Metric
+
+#### custom metric
+
 - Cloudwatch agent
 - [有文件照做就會跑出來](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/publishingMetrics.html)
 - 要注意權限
+
 #### by second
+
 - 沒弄過，有[文件](https://aws.amazon.com/blogs/aws/new-high-resolution-custom-metrics-and-alarms-for-amazon-cloudwatch/)
+
 ### Log
-#### custom
+
+#### custom log group
+
 - Cloudwatch agent
 - 要注意權限
+
 ### Alarm
+
 #### period
+
 - 看要求，不然依據預設Metrics就五分鐘跳一次
+
 ### Event
+
 #### schedule, event rule based
+
 - 可以依據事件或是排成觸發Lambda作業
 
-## Route53 
+## Route53
+
 ### Private Host Zone
+
 - 要attach到VPC才會生效
 - 一個VPC只能attach一個
+
 ### resolution log
+
 > 應該不會出
 
 ## CloudTrail
+
 ### Filter log and find specific action then alert (SNS)
+
 - [結合Athena的範例](https://gitlab.com/ecloudture-dev/blog/posted/querying-cloudtrail-logs-with-aws-athena)
 
 ## Config
+
 ### [Custom Rule](https://docs.aws.amazon.com/config/latest/developerguide/evaluate-config_develop-rules.html)
+
 - 或是參考[awslabs/aws-config-rules](https://github.com/awslabs/aws-config-rules)
 
 ## Elastic Beanstalk
+
 - 微乎其微的出現率
 
 ## System manager
+
 - ec2要attached service role才能call
     > 取決於有沒有IAM權限
+
 ### Automation
+
 - 跑腳本的
+
 ### State manager
+
 - 可以安排時間跑腳本的
+
 ### Session manager
+
 - 可以直接透過console連到那台ec2的
+
 ### Parameter store
+
 - 放敏感資訊／參數的
 
 ## Trusted advisor
-- 如果有權限的話可以加減看看
 
+- 如果有權限的話可以加減看看
 
 ## [CLI](https://aws.amazon.com/cli/)
 
-
 ## SDK/API
+
 - [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)，左邊Available Services點下去找對應服務
 
 ## 不會出的（吧
 
-```
+```Other
 # Visualization
 ## Athena
 ## ElasticSearch

@@ -68,25 +68,25 @@ Resources:
 
   ## NAT Gateways
 
-  NatGateway1:
-    Type: AWS::EC2::NatGateway
-    Properties: 
-      AllocationId: !GetAtt 'IPAddress1.AllocationId'
-      SubnetId: !Ref PublicSubnet1
-      Tags: 
-        - 
-          Key: "Name"
-          Value: "NATGW-A"
+  # NatGateway1:
+  #   Type: AWS::EC2::NatGateway
+  #   Properties: 
+  #     AllocationId: !GetAtt 'IPAddress1.AllocationId'
+  #     SubnetId: !Ref PublicSubnet1
+  #     Tags: 
+  #       - 
+  #         Key: "Name"
+  #         Value: "NATGW-A"
   
-  NatGateway2:
-    Type: AWS::EC2::NatGateway
-    Properties: 
-      AllocationId: !GetAtt 'IPAddress2.AllocationId'
-      SubnetId: !Ref PublicSubnet2
-      Tags: 
-        - 
-          Key: "Name"
-          Value: "NATGW-B"
+  # NatGateway2:
+  #   Type: AWS::EC2::NatGateway
+  #   Properties: 
+  #     AllocationId: !GetAtt 'IPAddress2.AllocationId'
+  #     SubnetId: !Ref PublicSubnet2
+  #     Tags: 
+  #       - 
+  #         Key: "Name"
+  #         Value: "NATGW-B"
 
   ## Public Route Table
 
@@ -118,13 +118,13 @@ Resources:
           Key: "Name"
           Value: "Private Route A"
 
-  PrivateRoute1:
-    Type: AWS::EC2::Route
-    DependsOn: NatGateway1
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway1
+  # PrivateRoute1:
+  #   Type: AWS::EC2::Route
+  #   DependsOn: NatGateway1
+  #   Properties:
+  #     RouteTableId: !Ref PrivateRouteTable1
+  #     DestinationCidrBlock: 0.0.0.0/0
+  #     NatGatewayId: !Ref NatGateway1
   
   PrivateRouteTable2:
     Type: AWS::EC2::RouteTable
@@ -135,13 +135,13 @@ Resources:
           Key: "Name"
           Value: "Private Route B"
 
-  PrivateRoute2:
-    Type: AWS::EC2::Route
-    DependsOn: NatGateway2
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable2
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway2
+  # PrivateRoute2:
+  #   Type: AWS::EC2::Route
+  #   DependsOn: NatGateway2
+  #   Properties:
+  #     RouteTableId: !Ref PrivateRouteTable2
+  #     DestinationCidrBlock: 0.0.0.0/0
+  #     NatGatewayId: !Ref NatGateway2
 
   ## Public Subnets
   
@@ -305,53 +305,53 @@ Resources:
 
   # ## Security Group for EC2
 
-  # WebSecurityGroup:  
-  #   Type: AWS::EC2::SecurityGroup
-  #   Properties:
-  #     GroupName: "Web SG"
-  #     GroupDescription: "Security group with allow ELB"
-  #     VpcId: !Ref VPC
-  #     SecurityGroupIngress:
-  #       - IpProtocol: tcp
-  #         FromPort: 80
-  #         ToPort: 80
-  #         SourceSecurityGroupId: !Ref ALBSecurityGroup
-  #       - IpProtocol: tcp
-  #         FromPort: 22
-  #         ToPort: 22
-  #         CidrIp: !Ref SSHLocation
+  WebSecurityGroup:  
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "Web SG"
+      GroupDescription: "Security group with allow ELB"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
 
-  # ## Security Group for ALB
+  ## Security Group for ALB
 
-  # ALBSecurityGroup:  
-  #   Type: AWS::EC2::SecurityGroup
-  #   Properties:
-  #     GroupName: "ALB SG"
-  #     GroupDescription: "Security group with allow HTTP(s)"
-  #     VpcId: !Ref VPC
-  #     SecurityGroupIngress:
-  #       - IpProtocol: tcp
-  #         FromPort: 80
-  #         ToPort: 80
-  #         CidrIp: 0.0.0.0/0
-  #       - IpProtocol: tcp
-  #         FromPort: 443
-  #         ToPort: 443
-  #         CidrIp: 0.0.0.0/0    
+  ALBSecurityGroup:  
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "ALB SG"
+      GroupDescription: "Security group with allow HTTP(s)"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0    
 
-  # ## Security Group for DB
+  ## Security Group for DB
 
-  # MySQLSecurityGroup:  
-  #   Type: AWS::EC2::SecurityGroup
-  #   Properties:
-  #     GroupName: "MySQL SG"
-  #     GroupDescription: "Security group with allow EC2"
-  #     VpcId: !Ref VPC
-  #     SecurityGroupIngress:
-  #       - IpProtocol: tcp
-  #         FromPort: 3306
-  #         ToPort: 3306
-  #         SourceSecurityGroupId: !Ref WebSecurityGroup
+  MySQLSecurityGroup:  
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "MySQL SG"
+      GroupDescription: "Security group with allow EC2"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref WebSecurityGroup
  
   ## Endpoint
   
@@ -375,25 +375,25 @@ Resources:
         - !Ref PrivateRouteTable1
         - !Ref PrivateRouteTable2
 
-  DDBEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VPC
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
-      VpcEndpointType: "Gateway"
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal: "*"
-            Action:
-              - "dynamodb:*"
-            Resource:
-              - "*"
-      RouteTableIds:
-        - !Ref PublicRouteTable
-        - !Ref PrivateRouteTable1
-        - !Ref PrivateRouteTable2      
+  # DDBEndpoint:
+  #   Type: AWS::EC2::VPCEndpoint
+  #   Properties:
+  #     VpcId: !Ref VPC
+  #     ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+  #     VpcEndpointType: "Gateway"
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal: "*"
+  #           Action:
+  #             - "dynamodb:*"
+  #           Resource:
+  #             - "*"
+  #     RouteTableIds:
+  #       - !Ref PublicRouteTable
+  #       - !Ref PrivateRouteTable1
+  #       - !Ref PrivateRouteTable2      
 
 
 ######################
@@ -414,11 +414,11 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-S3EndpointGW'
 
-  DDBEndpoint:
-    Description: DynamoDB Endpoint Gateway ID
-    Value: !Ref DDBEndpoint
-    Export:
-      Name: !Sub '${AWS::StackName}-DDBEndpointGW'
+  # DDBEndpoint:
+  #   Description: DynamoDB Endpoint Gateway ID
+  #   Value: !Ref DDBEndpoint
+  #   Export:
+  #     Name: !Sub '${AWS::StackName}-DDBEndpointGW'
 
   PublicSubnet1:
     Description: The subnet ID to use for public subnet
@@ -444,22 +444,22 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-PrivateSubnet2'
   
-  # WebSG:
-  #   Description: The subnet ID to use for private subnet
-  #   Value: !Ref WebSecurityGroup
-  #   Export:
-  #     Name: !Sub '${AWS::StackName}-WebSG' 
+  WebSG:
+    Description: The subnet ID to use for private subnet
+    Value: !Ref WebSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-WebSG' 
 
-  # ALBSG:
-  #   Description: The subnet ID to use for private subnet
-  #   Value: !Ref ALBSecurityGroup
-  #   Export:
-  #     Name: !Sub '${AWS::StackName}-ALBSG'
+  ALBSG:
+    Description: The subnet ID to use for private subnet
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-ALBSG'
 
-  # DBSG:
-  #   Description: The subnet ID to use for private subnet
-  #   Value: !Ref MySQLSecurityGroup
-  #   Export:
-  #     Name: !Sub '${AWS::StackName}-DBSG'
+  DBSG:
+    Description: The subnet ID to use for private subnet
+    Value: !Ref MySQLSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-DBSG'
 
 

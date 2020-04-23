@@ -3,12 +3,9 @@ Description: >-
   ASG Template: ALB and Auto Scaling Group
 
 # This template creates:
-#   Web Security Group
-#   ALB Security Group
 #   ALB
 #   Auto Scaling Group
 #   LaunchConfiguration
-#   LaunchTemplate
 #   IAM Role
 #   IAM Policy
 #   Scaling Policy
@@ -17,27 +14,27 @@ Description: >-
 
 Parameters:
 
-  # NetworkStackName:
-  #   Description: >-
-  #     Name of an active CloudFormation stack that contains the networking
-  #     resources, such as the VPC and subnet that will be used in this stack.
-  #   Type: String
-  #   MinLength: 1
-  #   MaxLength: 255
-  #   AllowedPattern: '^[a-zA-Z][-a-zA-Z0-9]*$'
-  #   Default: test-vpc
+  NetworkStackName:
+    Description: >-
+      Name of an active CloudFormation stack that contains the networking
+      resources, such as the VPC and subnet that will be used in this stack.
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: '^[a-zA-Z][-a-zA-Z0-9]*$'
+    Default: vpc-stack
 
-  VpcId:
-    Description: The VPC of the worker instances
-    Type: AWS::EC2::VPC::Id
+  # VpcId:
+  #   Description: The VPC of the worker instances
+  #   Type: AWS::EC2::VPC::Id
 
-  ASGSubnets:
-    Description: Select 2 subnets where ASG can be created.
-    Type: List<AWS::EC2::Subnet::Id>
+  # ASGSubnets:
+  #   Description: Select 2 subnets where ASG can be created.
+  #   Type: List<AWS::EC2::Subnet::Id>
 
-  ALBSubnets:
-    Description: Select 2 subnets where ASG can be created.
-    Type: List<AWS::EC2::Subnet::Id>
+  # ALBSubnets:
+  #   Description: Select 2 subnets where ASG can be created.
+  #   Type: List<AWS::EC2::Subnet::Id>
 
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
@@ -73,12 +70,12 @@ Parameters:
   AutoScalingGroupDesiredSize:
     Type: Number
     Description: Desired size of Group ASG.
-    Default: 2
+    Default: 1
     
   AutoScalingGroupMaxSize:
     Type: Number
     Description: Maximum size of Group ASG.
-    Default: 5
+    Default: 2
 
 ######################
 # Resources section
@@ -119,42 +116,6 @@ Resources:
   #     Roles:
   #       - !Ref InstanceRole
 
-  ## Security Group for EC2
-
-  WebSecurityGroup:  
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: "Web SG"
-      GroupDescription: "Security group with allow ELB"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref SSHLocation
-
-  ## Security Group for ALB
-
-  ALBSecurityGroup:  
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: "ALB SG"
-      GroupDescription: "Security group with allow HTTP(s)"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0    
-
   ## Auto Scaling group
 
   WebServerGroup:
@@ -165,15 +126,15 @@ Resources:
       AvailabilityZones:
       - !Select [ 0, !GetAZs '' ]
       - !Select [ 1, !GetAZs '' ]
-      VPCZoneIdentifier: !Ref ASGSubnets
+      VPCZoneIdentifier: 
+        - Fn::ImportValue: !Sub ${NetworkStackName}-PublicSubnet1
+        - Fn::ImportValue: !Sub ${NetworkStackName}-PublicSubnet2
       LaunchConfigurationName: !Ref LaunchConfig
       DesiredCapacity: !Ref AutoScalingGroupDesiredSize
       MinSize: !Ref AutoScalingGroupMinSize
       MaxSize: !Ref AutoScalingGroupMaxSize
       TargetGroupARNs: 
       - Ref: ALBTargetGroup
-      #LoadBalancerNames: 
-      #- Ref: ApplicationLoadBalancer
       Tags:
       - Key: Name
         Value: !Sub "${AWS::StackName}-ASG"
@@ -186,77 +147,30 @@ Resources:
       # IamInstanceProfile: !GetAtt InstanceProfile.Arn
       KeyName: !Ref KeyName
       ImageId: !Ref LatestAmiId
-      SecurityGroups: [!Ref 'WebSecurityGroup']
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${NetworkStackName}-WebSG
       InstanceType: !Ref InstanceType
-      # SpotPrice: 0.0045
+      SpotPrice: 0.0045
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           # Install Apache Web Server and PHP 
-          yum install -y php72 wget httpd24
+          yum install -y httpd24 php56 php56-mysqlnd mysql git
           # Download Lab files 
-          wget https://raw.githubusercontent.com/KYPan0818/CodeDeploy-php-lb/master/index.php
+          wget https://ecv-labrochure-lab-source.s3.amazonaws.com/aws/aws-management-workshop/get-started-with-cloudformation/materials/index.php
+          wget https://ecv-labrochure-lab-source.s3.amazonaws.com/aws/aws-management-workshop/get-started-with-cloudformation/materials/login.php
+          wget https://ecv-labrochure-lab-source.s3.amazonaws.com/aws/aws-management-workshop/get-started-with-cloudformation/materials/style.css
           mv index.php /var/www/html/
+          mv login.php /var/www/html/
+          mv style.css /var/www/html/
           # Start web service 
           chkconfig httpd on 
-          service httpd start
-          # Enable ssm-agent
-          # yum install amazon-ssm-agent -y
-          # /sbin/start amazon-ssm-agent
-          # /opt/aws/bin/cfn-signal --exit-code $? \
-          #          --stack  ${AWS::StackName} \
-          #          --resource WebServerGroup  \
-          #          --region ${AWS::Region}          
-
-  # # Launch Template
-
-  # MyLaunchTemplate:
-  #   Type: AWS::EC2::LaunchTemplate
-  #   Properties:
-  #     LaunchTemplateName: !Sub "${AWS::StackName}-LaunchTemplate"
-  #     LaunchTemplateData: 
-  #       SecurityGroupIds: 
-  #          - !Ref WebSecurityGroup
-  #       TagSpecifications: 
-  #         -
-  #           ResourceType: instance
-  #           Tags:
-  #             - Key: Name
-  #               Value: Web Server
-  #       UserData: 
-  #         Fn::Base64:
-  #           !Sub |
-  #           #!/bin/bash
-  #           # Install Apache Web Server and PHP 
-  #           yum install -y php72 wget httpd24
-  #           # Download Lab files 
-  #           wget https://raw.githubusercontent.com/KYPan0818/CodeDeploy-php-lb/master/index.php
-  #           mv index.php /var/www/html/
-  #           # Start web service 
-  #           chkconfig httpd on 
-  #           service httpd start
-  #           # Enable ssm-agent
-  #           yum install amazon-ssm-agent -y
-  #           /sbin/start amazon-ssm-agent
-  #           /opt/aws/bin/cfn-signal --exit-code $? \
-  #                    --stack  ${AWS::StackName} \
-  #                    --resource WebServerGroup  \
-  #                    --region ${AWS::Region}
-  #       IamInstanceProfile: 
-  #         Arn: !GetAtt InstanceProfile.Arn
-  #       KeyName: !Ref KeyName
-  #       ImageId: 
-  #         !If
-  #           - PreferredDefaultAMI
-  #           - !Ref LatestAMIId
-  #           # - !FindInMap [AMIMap, !Ref "AWS::Region", ami ]   
-  #       InstanceType: !Ref InstanceType
-  #       BlockDeviceMappings:
-  #         - DeviceName: /dev/xvda
-  #           Ebs:
-  #             VolumeSize: 10
-  #             VolumeType: gp2
-  #             DeleteOnTermination: true
+          service httpd start       
+          # notify for cfn 
+          /opt/aws/bin/cfn-signal --exit-code $? \
+                     --stack  ${AWS::StackName} \
+                     --resource WebServerGroup \
+                     --region ${AWS::Region}
 
   # Scaling Policy
 
@@ -312,14 +226,14 @@ Resources:
 
   # Life Cycle hook
 
-  # LCH:
-  #   Type: AWS::AutoScaling::LifecycleHook
-  #   Properties:
-  #     AutoScalingGroupName: !Ref WebServerGroup
-  #     HeartbeatTimeout: 60
-  #     DefaultResult: CONTINUE
-  #     LifecycleHookName: !Sub "${WebServerGroup}-LCH"
-  #     LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
+  LCH:
+    Type: AWS::AutoScaling::LifecycleHook
+    Properties:
+      AutoScalingGroupName: !Ref WebServerGroup
+      HeartbeatTimeout: 60
+      DefaultResult: CONTINUE
+      LifecycleHookName: !Sub "${WebServerGroup}-LCH"
+      LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
 
 ## ALB
 
@@ -327,9 +241,11 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Scheme: internet-facing
-      Subnets: !Ref ASGSubnets
+      Subnets: 
+        - Fn::ImportValue: !Sub ${NetworkStackName}-PublicSubnet1
+        - Fn::ImportValue: !Sub ${NetworkStackName}-PublicSubnet2
       SecurityGroups:
-      - Ref: ALBSecurityGroup
+        - Fn::ImportValue: !Sub ${NetworkStackName}-ALBSG
 
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -353,7 +269,9 @@ Resources:
       HealthCheckPath: /
       Port: 80
       Protocol: HTTP
-      VpcId: !Ref VpcId
+      VpcId: 
+        Fn::ImportValue: 
+          !Sub ${NetworkStackName}-VPC
 
 ######################
 # Outputs section
@@ -363,18 +281,7 @@ Outputs:
 
   ALB:
     Description: ALB Endpoint
-    Value: !Ref ApplicationLoadBalancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
       Name: !Sub '${AWS::StackName}-ALB'
   
-  WebSG:
-    Description: The subnet ID to use for private subnet
-    Value: !Ref WebSecurityGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-WebSG' 
-
-  ALBSG:
-    Description: The subnet ID to use for private subnet
-    Value: !Ref ALBSecurityGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-ALBSG'
